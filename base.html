@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECOTrack Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [v-cloak] { display: none; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans antialiased text-slate-900">
+
+<div id="app" v-cloak>
+    <transition name="fade">
+        <div v-if="!isLoggedIn" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900 px-6">
+            <div class="w-full max-w-md bg-white p-10 rounded-[2rem] shadow-2xl border border-slate-200">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 bg-emerald-500 text-white rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-lg shadow-emerald-200 mb-4">
+                        <i class="fa fa-leaf"></i>
+                    </div>
+                    <h2 class="text-2xl font-black tracking-tight text-slate-800">System Authentication</h2>
+                    <p class="text-slate-400 text-sm">Credentials: admin / admin</p>
+                </div>
+                <form @submit.prevent="handleLogin" class="space-y-4">
+                    <input v-model="auth.user" type="text" placeholder="Username" class="w-full px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                    <input v-model="auth.pass" type="password" placeholder="Password" class="w-full px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                    <button class="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold text-lg hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition transform hover:-translate-y-1">Sign In</button>
+                </form>
+            </div>
+        </div>
+    </transition>
+
+    <div v-if="isLoggedIn" class="flex h-screen overflow-hidden">
+        
+        <aside class="w-72 bg-slate-900 text-white flex flex-col p-6 overflow-y-auto shrink-0">
+            <div class="flex items-center gap-3 mb-10 px-2">
+                <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center"><i class="fa fa-recycle"></i></div>
+                <h1 class="text-xl font-black tracking-tighter italic">ECO-TRACK</h1>
+            </div>
+
+            <nav class="flex-1 space-y-1">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Main Menu</p>
+                <button v-for="(m, k) in modules" @click="view = k" :class="navClass(k)">
+                    <i :class="icons[k] + ' w-5 text-emerald-400'"></i> {{ m }}
+                </button>
+            </nav>
+
+            <div class="mt-auto bg-slate-800/50 p-5 rounded-2xl border border-slate-700/50">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center font-bold">AD</div>
+                    <div class="overflow-hidden">
+                        <p class="text-sm font-bold truncate">Administrator</p>
+                    </div>
+                </div>
+                <button @click="logout" class="w-full py-2.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition">
+                    <i class="fa fa-power-off mr-2"></i> Log Out
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto relative bg-slate-50">
+            <transition name="slide">
+                <div v-if="toast" class="fixed top-6 right-6 z-[300] bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border-l-4 border-emerald-500">
+                    <div class="w-8 h-8 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center"><i class="fa fa-bell"></i></div>
+                    <p class="text-sm font-medium">{{ toast }}</p>
+                </div>
+            </transition>
+
+            <div class="p-8 max-w-6xl mx-auto">
+                
+                <section v-if="view === 'data'">
+                    <header class="flex justify-between items-end mb-8">
+                        <div>
+                            <h2 class="text-3xl font-black text-slate-800 tracking-tight">Waste Data Management</h2>
+                            <p class="text-slate-500 text-sm mt-1 font-medium italic">Records storage & categorization (Module 1.1.4)</p>
+                        </div>
+                        <button @click="openModal" class="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition flex items-center gap-2">
+                            <i class="fa fa-plus"></i> Record Waste
+                        </button>
+                    </header>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                        <div v-for="c in categories" class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+                            <p class="text-[10px] uppercase font-bold text-slate-400 mb-1">{{ c }}</p>
+                            <p class="text-2xl font-black">{{ categoryTotal(c) }} <span class="text-sm font-normal text-slate-400">kg</span></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-[11px] font-black uppercase text-slate-400 tracking-widest">
+                                <tr><th class="p-6">Timestamp</th><th class="p-6">Category (1.1.3)</th><th class="p-6">Weight</th><th class="p-6 text-right">Options</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="(r, i) in records" class="hover:bg-slate-50 transition">
+                                    <td class="p-6 text-sm font-semibold text-slate-600">{{ r.date }}</td>
+                                    <td class="p-6"><span :class="badge(r.cat)">{{ r.cat }}</span></td>
+                                    <td class="p-6 font-mono text-emerald-600 font-bold">{{ r.val }}kg</td>
+                                    <td class="p-6 text-right"><button @click="deleteRecord(i)" class="w-8 h-8 bg-red-50 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition"><i class="fa fa-trash text-xs"></i></button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div v-if="records.length === 0" class="p-20 text-center text-slate-300 italic">No records found. Start adding data.</div>
+                    </div>
+                </section>
+
+                <section v-if="view === 'analytics'">
+                    <div class="flex justify-between items-center mb-10">
+                        <h2 class="text-3xl font-black text-slate-800 tracking-tight">Reporting & Analytics</h2>
+                        <button @click="exportData" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2"><i class="fa fa-file-export"></i> Export CSV (1.6.3)</button>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-2 bg-white p-8 rounded-[2rem] shadow-sm border">
+                            <h3 class="font-bold text-slate-800 mb-6">Waste Distribution (1.6.4)</h3>
+                            <canvas id="mainChart" class="max-h-[400px]"></canvas>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="bg-emerald-600 p-8 rounded-[2rem] text-white shadow-xl shadow-emerald-100">
+                                <p class="text-xs font-bold uppercase tracking-widest opacity-70 mb-2">Total Managed</p>
+                                <p class="text-5xl font-black">{{ totalWeight }}<span class="text-xl">kg</span></p>
+                            </div>
+                            <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
+                                <h3 class="font-bold text-slate-800 mb-4">Summary (1.6.1)</h3>
+                                <div class="space-y-4">
+                                    <div v-for="c in categories" class="flex items-center justify-between text-sm">
+                                        <span class="text-slate-500 font-medium">{{ c }}</span>
+                                        <span class="font-bold">{{ categoryTotal(c) }} kg</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section v-if="view === 'scheduling'">
+                    <h2 class="text-3xl font-black text-slate-800 mb-8">Collection Schedule (1.2)</h2>
+                    <div class="bg-white p-10 rounded-[2rem] border border-slate-200 grid grid-cols-7 gap-4">
+                        <div v-for="d in 31" @click="setSchedule(d)" class="h-24 border border-slate-100 rounded-2xl p-3 cursor-pointer transition relative flex flex-col justify-between" :class="schedules.includes(d) ? 'bg-emerald-50 border-emerald-500 shadow-md ring-2 ring-emerald-500/20' : 'hover:bg-slate-50'">
+                            <span class="font-black text-slate-300">{{ d }}</span>
+                            <div v-if="schedules.includes(d)" class="bg-emerald-600 text-[9px] text-white font-black px-1.5 py-0.5 rounded-md uppercase text-center truncate">Pickup (1.2.1)</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section v-if="view === 'disposal'">
+                    <h2 class="text-3xl font-black text-slate-800 mb-2 text-center mt-10">Compliance & Proof (1.3)</h2>
+                    <div class="max-w-xl mx-auto mt-10">
+                        <div class="bg-white p-10 rounded-[2.5rem] border-4 border-dashed border-slate-200 text-center hover:border-emerald-500 transition-all cursor-pointer group" @click="uploadSim">
+                            <div class="w-20 h-20 bg-slate-50 text-slate-300 rounded-3xl flex items-center justify-center text-3xl mx-auto mb-6 group-hover:bg-emerald-100 group-hover:text-emerald-500 transition">
+                                <i class="fa fa-camera"></i>
+                            </div>
+                            <h4 class="text-xl font-black text-slate-800 mb-2">Upload Disposal Photo</h4>
+                            <p class="text-slate-400 text-sm">Document disposal activity for compliance (1.3.2)</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section v-if="view === 'awareness'">
+                    <h2 class="text-3xl font-black text-slate-800 mb-10">Knowledge Hub (1.5)</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition">
+                            <i class="fa fa-list-check text-2xl text-emerald-500 mb-4"></i>
+                            <h4 class="font-bold mb-2">1.5.1 Segregation</h4>
+                            <p class="text-sm text-slate-500 leading-relaxed">Mandatory bin separation based on local policy 2024.</p>
+                        </div>
+                        <div class="bg-white p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition">
+                            <i class="fa fa-recycle text-2xl text-blue-500 mb-4"></i>
+                            <h4 class="font-bold mb-2">1.5.2 Pro Tips</h4>
+                            <p class="text-sm text-slate-500 leading-relaxed">Flatten cardboard boxes to maximize recycling space.</p>
+                        </div>
+                        <div class="bg-white p-8 rounded-3xl border border-slate-200 hover:shadow-lg transition">
+                            <i class="fa fa-university text-2xl text-indigo-500 mb-4"></i>
+                            <h4 class="font-bold mb-2">1.5.3 Regulations</h4>
+                            <p class="text-sm text-slate-500 leading-relaxed">Official school waste policies and penalties.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div v-if="modal" class="fixed inset-0 z-[300] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-10 shadow-2xl scale-up-center">
+            <h3 class="text-2xl font-black text-slate-800 mb-6">New Record</h3>
+            <div class="space-y-4">
+                <select v-model="form.cat" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold">
+                    <option v-for="c in categories" :value="c">{{ c }}</option>
+                </select>
+                <div class="relative">
+                    <input v-model.number="form.val" type="number" placeholder="Weight" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-2xl">
+                    <span class="absolute right-4 top-5 text-slate-400 font-black">KG</span>
+                </div>
+                <div class="flex gap-3 pt-6">
+                    <button @click="save" class="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition">Save Data</button>
+                    <button @click="modal = false" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp } = Vue;
+    createApp({
+        data() {
+            return {
+                isLoggedIn: JSON.parse(localStorage.getItem('isLoggedIn')) || false,
+                auth: { user: '', pass: '' },
+                view: 'data',
+                modal: false,
+                toast: '',
+                form: { cat: 'Recyclable', val: null },
+                records: JSON.parse(localStorage.getItem('records')) || [
+                    { date: '2023-11-01', cat: 'Recyclable', val: 22.5 },
+                    { date: '2023-11-01', cat: 'Biodegradable', val: 18.0 }
+                ],
+                schedules: JSON.parse(localStorage.getItem('schedules')) || [5, 12, 28],
+                categories: ['Biodegradable', 'Recyclable', 'Residual', 'Hazardous'],
+                modules: { data: 'Waste Data', scheduling: 'Schedules', disposal: 'Compliance', awareness: 'Knowledge Hub', analytics: 'Analytics' },
+                icons: { data: 'fa fa-server', scheduling: 'fa fa-calendar-alt', disposal: 'fa fa-clipboard-check', awareness: 'fa fa-graduation-cap', analytics: 'fa fa-chart-line' },
+                chart: null
+            }
+        },
+        computed: {
+            totalWeight() { return this.records.reduce((acc, curr) => acc + curr.val, 0).toFixed(1); }
+        },
+        watch: {
+            records: { handler(v) { localStorage.setItem('records', JSON.stringify(v)); if(this.view === 'analytics') this.updateChart(); }, deep: true },
+            schedules: { handler(v) { localStorage.setItem('schedules', JSON.stringify(v)); }, deep: true },
+            view(n) { if(n === 'analytics') this.$nextTick(() => this.initChart()); }
+        },
+        methods: {
+            handleLogin() {
+                if(this.auth.user === 'admin' && this.auth.pass === 'admin') {
+                    this.isLoggedIn = true;
+                    localStorage.setItem('isLoggedIn', 'true');
+                    this.showToast("Access Granted: Admin Role (1.4.3)");
+                } else alert("Invalid Credentials");
+            },
+            logout() {
+                this.isLoggedIn = false;
+                localStorage.setItem('isLoggedIn', 'false');
+            },
+            navClass(k) { return `w-full text-left px-5 py-3.5 rounded-2xl flex items-center gap-4 transition-all duration-300 font-bold ${this.view === k ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/40 translate-x-2' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`; },
+            badge(cat) { 
+                const colors = { Biodegradable: 'bg-emerald-100 text-emerald-700', Recyclable: 'bg-blue-100 text-blue-700', Residual: 'bg-slate-200 text-slate-700', Hazardous: 'bg-red-100 text-red-700' };
+                return `px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter ${colors[cat]}`; 
+            },
+            categoryTotal(cat) { return this.records.filter(r => r.cat === cat).reduce((a, b) => a + b.val, 0).toFixed(1); },
+            showToast(m) { this.toast = m; setTimeout(() => this.toast = '', 3000); },
+            openModal() { this.modal = true; this.form.val = null; },
+            save() {
+                if(!this.form.val) return;
+                this.records.unshift({ date: new Date().toLocaleString(), cat: this.form.cat, val: this.form.val });
+                this.modal = false;
+                this.showToast("Data Synced to Storage (1.1.4)");
+            },
+            deleteRecord(i) { this.records.splice(i, 1); },
+            setSchedule(d) {
+                const idx = this.schedules.indexOf(d);
+                if(idx > -1) this.schedules.splice(idx, 1);
+                else { this.schedules.push(d); this.showToast(`Collection Set for Oct ${d} (1.2.1)`); }
+            },
+            uploadSim() { this.showToast("Uploading Proof of Disposal... (1.3.2)"); },
+            exportData() { alert("1.6.3: Compiling Waste Data to CSV..."); },
+            initChart() {
+                const ctx = document.getElementById('mainChart').getContext('2d');
+                if(this.chart) this.chart.destroy();
+                this.chart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: this.categories,
+                        datasets: [{ data: this.categories.map(c => this.categoryTotal(c)), backgroundColor: ['#10b981', '#3b82f6', '#94a3b8', '#ef4444'], borderWeight: 0, hoverOffset: 20 }]
+                    },
+                    options: { plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } }, cutout: '70%' }
+                });
+            },
+            updateChart() { if(this.chart) this.initChart(); }
+        },
+        mounted() { if(this.isLoggedIn && this.view === 'analytics') this.initChart(); }
+    }).mount('#app')
+</script>
+
+<style>
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.5s ease; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
+    .slide-enter-active { transition: all 0.4s ease-out; }
+    .slide-enter-from { transform: translateX(100%); opacity: 0; }
+    .scale-up-center { animation: scale-up-center 0.3s cubic-bezier(0.390, 0.575, 0.565, 1.000) both; }
+    @keyframes scale-up-center { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
+</style>
+</body>
+</html>
